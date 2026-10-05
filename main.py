@@ -4,6 +4,7 @@ from openai import OpenAI
 from datetime import datetime
 import os
 import json
+import re
 from database import (
     salvar_mensagem,
     carregar_historico,
@@ -41,13 +42,20 @@ def montar_system_prompt(session_id: str) -> str:
         memorias += f"{chave}: {valor}\n"
 
     return f"""
-Você é Sexta-Feira, uma assistente virtual inteligente, educada, objetiva e útil.
-Seu objetivo é ajudar o usuário da melhor forma possível.
+Você é a Sexta-Feira, uma assistente virtual brasileira, inteligente e natural.
 
-Informações conhecidas sobre o usuário:
-{memorias}
+Informações do usuário:
+{memorias if memorias.strip() else "Nenhuma memória salva."}
 
-Você possui acesso às seguintes ferramentas:
+REGRAS OBRIGATÓRIAS:
+
+1. Quando precisar usar uma ferramenta, responda APENAS com o JSON puro.
+2. Não escreva nenhuma palavra antes ou depois do JSON.
+3. Não use markdown (```).
+4. Não explique o que vai fazer.
+5. Só use ferramenta quando for realmente necessário.
+
+Ferramentas disponíveis:
 - abrir_site
 - abrir_programa
 - salvar_memoria
@@ -55,20 +63,56 @@ Você possui acesso às seguintes ferramentas:
 - listar_memorias
 - deletar_memoria
 
-Quando precisar usar uma ferramenta, responda SOMENTE com JSON válido neste formato:
+Formato obrigatório da ferramenta:
 {{
   "tipo": "ferramenta",
-  "nome": "nome_da_ferramenta",
+  "nome": "abrir_programa",
   "argumentos": {{
-    "chave": "valor"
+    "nome": "Chrome"
   }}
 }}
 
-Regras:
-- Se for usar ferramenta: responda APENAS o JSON, sem nenhum texto extra.
-- Se não precisar de ferramenta: responda normalmente em português.
-- Nunca invente resultados de ferramentas.
+Exemplos de uso:
+- Abrir YouTube → usar abrir_site
+- Abrir Chrome, Discord, Spotify, etc → usar abrir_programa
+- Lembrar de algo → usar salvar_memoria
+
+Se não for usar ferramenta, responda normalmente em português de forma natural e direta.
 """
+
+
+def extrair_json(texto: str):
+    """Tenta extrair JSON de ferramenta mesmo se vier com texto extra"""
+    texto = texto.strip()
+
+    # Remove markdown
+    if "```" in texto:
+        linhas = texto.splitlines()
+        novas_linhas = []
+        dentro = False
+        for linha in linhas:
+            if linha.strip().startswith("```"):
+                dentro = not dentro
+                continue
+            if dentro or not linha.strip().startswith("```"):
+                novas_linhas.append(linha)
+        texto = "\n".join(novas_linhas).strip()
+
+    # Tenta carregar direto
+    try:
+        return json.loads(texto)
+    except:
+        pass
+
+    # Procura o JSON no meio do texto
+    match = re.search(r'\{\s*"tipo"\s*:\s*"ferramenta"[\s\S]*?\}', texto)
+    if match:
+        try:
+            return json.loads(match.group())
+        except:
+            pass
+
+    return None
 
 
 @app.get("/")
@@ -79,8 +123,8 @@ def home():
 @app.post("/conversar")
 def conversar(req: MensagemRequest):
     try:
-        historico = carregar_historico(req.session_id, limite=15)
-        
+        historico = carregar_historico(req.session_id, limite=12)
+
         messages = [{"role": "system", "content": montar_system_prompt(req.session_id)}]
         messages.extend(historico)
         messages.append({"role": "user", "content": req.mensagem})
@@ -88,50 +132,22 @@ def conversar(req: MensagemRequest):
         resposta = client.chat.completions.create(
             model=MODELO,
             messages=messages,
-            max_tokens=500
+            max_tokens=500,
+            temperature=0.3
         )
 
         conteudo = resposta.choices[0].message.content or ""
+        print("Resposta bruta da IA:", conteudo)
 
-# --- Detecção mais inteligente de ferramenta ---
-def extrair_json(texto):
-    texto = texto.strip()
+        dados = extrair_json(conteudo)
 
-    # Remove markdown se existir
-    if texto.startswith("```"):
-        linhas = texto.splitlines()
-        if linhas[0].startswith("```"):
-            linhas = linhas[1:]
-        if linhas and linhas[-1].strip() == "```":
-            linhas = linhas[:-1]
-        texto = "\n".join(linhas).strip()
-
-    # Tenta carregar direto
-    try:
-        return json.loads(texto)
-    except:
-        pass
-
-    # Tenta encontrar o JSON no meio do texto
-    import re
-    match = re.search(r'\{[\s\S]*"tipo"\s*:\s*"ferramenta"[\s\S]*\}', texto)
-    if match:
-        try:
-            return json.loads(match.group())
-        except:
-            pass
-
-    return None
-
-dados = extrair_json(conteudo)
-
-if dados and isinstance(dados, dict) and dados.get("tipo") == "ferramenta":
-    return {
-        "tipo": "ferramenta",
-        "nome": dados.get("nome"),
-        "argumentos": dados.get("argumentos", {}),
-        "raw": conteudo
-    }
+        if dados and isinstance(dados, dict) and dados.get("tipo") == "ferramenta":
+            return {
+                "tipo": "ferramenta",
+                "nome": dados.get("nome"),
+                "argumentos": dados.get("argumentos", {}),
+                "raw": conteudo
+            }
 
         # Resposta normal
         agora = datetime.now().isoformat()
@@ -144,27 +160,28 @@ if dados and isinstance(dados, dict) and dados.get("tipo") == "ferramenta":
         }
 
     except Exception as e:
+        print("Erro:", e)
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/tool-result")
 def tool_result(req: ToolResultRequest):
-    """Depois que o PC executa a ferramenta, manda o resultado de volta"""
     try:
-        historico = carregar_historico(req.session_id, limite=15)
+        historico = carregar_historico(req.session_id, limite=12)
 
         messages = [{"role": "system", "content": montar_system_prompt(req.session_id)}]
         messages.extend(historico)
         messages.append({"role": "user", "content": req.original_message})
         messages.append({
             "role": "user",
-            "content": f"A ferramenta retornou:\n{req.tool_result}\n\nResponda naturalmente ao usuário com base nesse resultado."
+            "content": f"A ferramenta retornou o seguinte resultado:\n{req.tool_result}\n\nResponda naturalmente ao usuário com base nesse resultado. Não mencione JSON nem ferramentas."
         })
 
         resposta = client.chat.completions.create(
             model=MODELO,
             messages=messages,
-            max_tokens=500
+            max_tokens=400,
+            temperature=0.4
         )
 
         conteudo = resposta.choices[0].message.content or ""
@@ -179,4 +196,5 @@ def tool_result(req: ToolResultRequest):
         }
 
     except Exception as e:
+        print("Erro no tool-result:", e)
         raise HTTPException(status_code=500, detail=str(e))
