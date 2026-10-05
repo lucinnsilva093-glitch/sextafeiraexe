@@ -93,18 +93,45 @@ def conversar(req: MensagemRequest):
 
         conteudo = resposta.choices[0].message.content or ""
 
-        # Tenta detectar se é ferramenta
+# --- Detecção mais inteligente de ferramenta ---
+def extrair_json(texto):
+    texto = texto.strip()
+
+    # Remove markdown se existir
+    if texto.startswith("```"):
+        linhas = texto.splitlines()
+        if linhas[0].startswith("```"):
+            linhas = linhas[1:]
+        if linhas and linhas[-1].strip() == "```":
+            linhas = linhas[:-1]
+        texto = "\n".join(linhas).strip()
+
+    # Tenta carregar direto
+    try:
+        return json.loads(texto)
+    except:
+        pass
+
+    # Tenta encontrar o JSON no meio do texto
+    import re
+    match = re.search(r'\{[\s\S]*"tipo"\s*:\s*"ferramenta"[\s\S]*\}', texto)
+    if match:
         try:
-            dados = json.loads(conteudo.strip())
-            if isinstance(dados, dict) and dados.get("tipo") == "ferramenta":
-                return {
-                    "tipo": "ferramenta",
-                    "nome": dados.get("nome"),
-                    "argumentos": dados.get("argumentos", {}),
-                    "raw": conteudo
-                }
+            return json.loads(match.group())
         except:
             pass
+
+    return None
+
+dados = extrair_json(conteudo)
+
+if dados and isinstance(dados, dict) and dados.get("tipo") == "ferramenta":
+    return {
+        "tipo": "ferramenta",
+        "nome": dados.get("nome"),
+        "argumentos": dados.get("argumentos", {}),
+        "raw": conteudo
+    }
 
         # Resposta normal
         agora = datetime.now().isoformat()
