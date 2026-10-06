@@ -47,34 +47,15 @@ Você é a Sexta-Feira, uma assistente virtual brasileira.
 Informações do usuário:
 {memorias if memorias.strip() else "Nenhuma memória salva."}
 
-REGRAS IMPORTANTES:
-
 REGRAS OBRIGATÓRIAS (não desobedeça):
 
 1. Quando for usar ferramenta, você DEVE responder SOMENTE com o JSON.
 2. É PROIBIDO escrever qualquer texto antes ou depois do JSON.
-3. É PROIBIDO usar markdown (```).
+3. É PROIBIDO usar markdown.
 4. É PROIBIDO explicar, dar passos ou fazer perguntas quando for usar ferramenta.
 5. Se precisar usar ferramenta, a resposta deve ser APENAS o JSON puro.
 
-Exemplo CORRETO:
-{
-  "tipo": "ferramenta",
-  "nome": "espelhar_tela",
-  "argumentos": {
-    "nome": "a03core"
-  }
-}
-
-Exemplo ERRADO:
-Claro! Vou espelhar a tela.
-{
-  "tipo": "ferramenta",
-  ...
-}
-
 Ferramentas disponíveis:
-
 - abrir_site
 - abrir_programa
 - listar_programas_abertos
@@ -92,38 +73,46 @@ Ferramentas disponíveis:
 Formato obrigatório da ferramenta:
 {{
   "tipo": "ferramenta",
-  "nome": "nome_da_ferramenta",
+  "nome": "espelhar_tela",
   "argumentos": {{
-    "chave": "valor"
+    "nome": "a03core"
   }}
 }}
 
-Exemplos de uso:
+Exemplos CORRETOS:
+{{
+  "tipo": "ferramenta",
+  "nome": "espelhar_tela",
+  "argumentos": {{
+    "nome": "a03core"
+  }}
+}}
 
-- "Abre o Spotify" → abrir_programa
-- "Abre o YouTube" → abrir_site
-- "Tira um print" → tirar_print
-- "Fecha todos os apps" → fechar_todos_apps
-- "Aumenta o volume" → controlar_volume
-- "Trava o PC" → controlar_pc
-- "Abre a pasta de downloads" → abrir_pasta
-- "Conecta no A03 Core" → conectar_dispositivo
-- "Mostra a tela do celular" → espelhar_tela
-- "Espelha o A03" → espelhar_tela
-- "Quais dispositivos estão conectados?" → listar_dispositivos
+{{
+  "tipo": "ferramenta",
+  "nome": "abrir_programa",
+  "argumentos": {{
+    "nome": "spotify"
+  }}
+}}
+
+{{
+  "tipo": "ferramenta",
+  "nome": "abrir_site",
+  "argumentos": {{
+    "url": "youtube.com"
+  }}
+}}
 """
 
 
 def extrair_json(texto: str):
-    import re
-    import json
-
     if not texto:
         return None
 
     texto = texto.strip()
 
-    # 1. Tenta encontrar qualquer bloco ```json ... ```
+    # 1. Tenta encontrar bloco ```json ... ```
     match = re.search(r'```(?:json)?\s*(\{[\s\S]*?\})\s*```', texto)
     if match:
         try:
@@ -131,7 +120,7 @@ def extrair_json(texto: str):
         except:
             pass
 
-    # 2. Tenta encontrar JSON puro com "tipo": "ferramenta"
+    # 2. Tenta encontrar JSON com "tipo": "ferramenta"
     match = re.search(r'\{\s*"tipo"\s*:\s*"ferramenta"[\s\S]*?\}', texto)
     if match:
         try:
@@ -139,7 +128,7 @@ def extrair_json(texto: str):
         except:
             pass
 
-    # 3. Última tentativa: carregar o texto inteiro
+    # 3. Tenta carregar o texto inteiro
     try:
         return json.loads(texto)
     except:
@@ -182,6 +171,7 @@ def conversar(req: MensagemRequest):
                 "raw": conteudo
             }
 
+        # Resposta normal
         agora = datetime.now().isoformat()
         salvar_mensagem(req.session_id, "user", req.mensagem, agora)
         salvar_mensagem(req.session_id, "assistant", conteudo, agora)
