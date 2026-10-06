@@ -47,16 +47,16 @@ Você é a Sexta-Feira, uma assistente virtual brasileira.
 Informações do usuário:
 {memorias if memorias.strip() else "Nenhuma memória salva."}
 
-REGRAS IMPORTANTES (siga à risca):
+REGRAS IMPORTANTES:
 
 1. Só use ferramenta quando o usuário PEDIR CLARAMENTE uma ação.
 2. Se o usuário só estiver conversando, NÃO use ferramenta.
 3. Nunca assuma que a pessoa quer abrir YouTube ou qualquer site.
-4. Só abra YouTube se a pessoa falar explicitamente "abre o youtube" ou "abre o site do youtube".
-5. Quando for usar ferramenta, responda APENAS com o JSON puro, sem nenhum texto extra.
-6. Se não for usar ferramenta, responda normalmente em português.
+4. Quando for usar ferramenta, responda APENAS com o JSON puro, sem nenhum texto extra.
+5. Se não for usar ferramenta, responda normalmente em português.
 
 Ferramentas disponíveis:
+
 - abrir_site
 - abrir_programa
 - listar_programas_abertos
@@ -66,6 +66,9 @@ Ferramentas disponíveis:
 - abrir_pasta
 - ler_area_transferencia
 - fechar_todos_apps
+- conectar_dispositivo
+- espelhar_tela
+- listar_dispositivos
 - salvar_memoria
 
 Formato obrigatório da ferramenta:
@@ -77,7 +80,8 @@ Formato obrigatório da ferramenta:
   }}
 }}
 
-Exemplos de quando USAR ferramenta:
+Exemplos de uso:
+
 - "Abre o Spotify" → abrir_programa
 - "Abre o YouTube" → abrir_site
 - "Tira um print" → tirar_print
@@ -85,21 +89,16 @@ Exemplos de quando USAR ferramenta:
 - "Aumenta o volume" → controlar_volume
 - "Trava o PC" → controlar_pc
 - "Abre a pasta de downloads" → abrir_pasta
-
-Exemplos de quando NÃO usar ferramenta:
-- "Como você está?"
-- "Me conta uma piada"
-- "O que você consegue fazer?"
-- "Qual seu nome?"
-- "Estou entediado"
+- "Conecta no A03 Core" → conectar_dispositivo
+- "Mostra a tela do celular" → espelhar_tela
+- "Espelha o A03" → espelhar_tela
+- "Quais dispositivos estão conectados?" → listar_dispositivos
 """
 
 
 def extrair_json(texto: str):
-    """Tenta extrair JSON de ferramenta mesmo se vier com texto extra"""
     texto = texto.strip()
 
-    # Remove markdown
     if "```" in texto:
         linhas = texto.splitlines()
         novas_linhas = []
@@ -112,13 +111,11 @@ def extrair_json(texto: str):
                 novas_linhas.append(linha)
         texto = "\n".join(novas_linhas).strip()
 
-    # Tenta carregar direto
     try:
         return json.loads(texto)
     except:
         pass
 
-    # Procura o JSON no meio do texto
     match = re.search(r'\{\s*"tipo"\s*:\s*"ferramenta"[\s\S]*?\}', texto)
     if match:
         try:
@@ -163,7 +160,6 @@ def conversar(req: MensagemRequest):
                 "raw": conteudo
             }
 
-        # Resposta normal
         agora = datetime.now().isoformat()
         salvar_mensagem(req.session_id, "user", req.mensagem, agora)
         salvar_mensagem(req.session_id, "assistant", conteudo, agora)
