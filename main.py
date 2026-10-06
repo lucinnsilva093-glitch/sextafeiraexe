@@ -49,11 +49,29 @@ Informações do usuário:
 
 REGRAS IMPORTANTES:
 
-1. Só use ferramenta quando o usuário PEDIR CLARAMENTE uma ação.
-2. Se o usuário só estiver conversando, NÃO use ferramenta.
-3. Nunca assuma que a pessoa quer abrir YouTube ou qualquer site.
-4. Quando for usar ferramenta, responda APENAS com o JSON puro, sem nenhum texto extra.
-5. Se não for usar ferramenta, responda normalmente em português.
+REGRAS OBRIGATÓRIAS (não desobedeça):
+
+1. Quando for usar ferramenta, você DEVE responder SOMENTE com o JSON.
+2. É PROIBIDO escrever qualquer texto antes ou depois do JSON.
+3. É PROIBIDO usar markdown (```).
+4. É PROIBIDO explicar, dar passos ou fazer perguntas quando for usar ferramenta.
+5. Se precisar usar ferramenta, a resposta deve ser APENAS o JSON puro.
+
+Exemplo CORRETO:
+{
+  "tipo": "ferramenta",
+  "nome": "espelhar_tela",
+  "argumentos": {
+    "nome": "a03core"
+  }
+}
+
+Exemplo ERRADO:
+Claro! Vou espelhar a tela.
+{
+  "tipo": "ferramenta",
+  ...
+}
 
 Ferramentas disponíveis:
 
@@ -97,31 +115,35 @@ Exemplos de uso:
 
 
 def extrair_json(texto: str):
+    import re
+    import json
+
+    if not texto:
+        return None
+
     texto = texto.strip()
 
-    if "```" in texto:
-        linhas = texto.splitlines()
-        novas_linhas = []
-        dentro = False
-        for linha in linhas:
-            if linha.strip().startswith("```"):
-                dentro = not dentro
-                continue
-            if dentro or not linha.strip().startswith("```"):
-                novas_linhas.append(linha)
-        texto = "\n".join(novas_linhas).strip()
+    # 1. Tenta encontrar qualquer bloco ```json ... ```
+    match = re.search(r'```(?:json)?\s*(\{[\s\S]*?\})\s*```', texto)
+    if match:
+        try:
+            return json.loads(match.group(1))
+        except:
+            pass
 
-    try:
-        return json.loads(texto)
-    except:
-        pass
-
+    # 2. Tenta encontrar JSON puro com "tipo": "ferramenta"
     match = re.search(r'\{\s*"tipo"\s*:\s*"ferramenta"[\s\S]*?\}', texto)
     if match:
         try:
             return json.loads(match.group())
         except:
             pass
+
+    # 3. Última tentativa: carregar o texto inteiro
+    try:
+        return json.loads(texto)
+    except:
+        pass
 
     return None
 
