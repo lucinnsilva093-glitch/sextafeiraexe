@@ -21,6 +21,7 @@ client = OpenAI(
 )
 
 MODELO = "deepseek/deepseek-chat-v3-0324"
+MODELO_VISAO = "openai/gpt-4o-mini"  # modelo com visão
 
 
 class MensagemRequest(BaseModel):
@@ -35,6 +36,11 @@ class ToolResultRequest(BaseModel):
     original_message: str
 
 
+class AnalisarTelaRequest(BaseModel):
+    imagem_base64: str
+    session_id: str = "local"
+
+
 def montar_system_prompt(session_id: str) -> str:
     fatos = buscar_fatos(session_id)
     memorias = ""
@@ -47,13 +53,12 @@ Você é a Sexta-Feira, uma assistente virtual brasileira.
 Informações do usuário:
 {memorias if memorias.strip() else "Nenhuma memória salva."}
 
-REGRAS OBRIGATÓRIAS (não desobedeça):
+REGRAS OBRIGATÓRIAS:
 
-1. Quando for usar ferramenta, você DEVE responder SOMENTE com o JSON.
+1. Quando for usar ferramenta, responda SOMENTE com o JSON puro.
 2. É PROIBIDO escrever qualquer texto antes ou depois do JSON.
 3. É PROIBIDO usar markdown.
-4. É PROIBIDO explicar, dar passos ou fazer perguntas quando for usar ferramenta.
-5. Se precisar usar ferramenta, a resposta deve ser APENAS o JSON puro.
+4. Se não for usar ferramenta, responda normalmente em português.
 
 Ferramentas disponíveis:
 - abrir_site
@@ -68,41 +73,21 @@ Ferramentas disponíveis:
 - conectar_dispositivo
 - espelhar_tela
 - listar_dispositivos
+- analisar_tela
 - salvar_memoria
 
 Formato obrigatório da ferramenta:
 {{
   "tipo": "ferramenta",
-  "nome": "espelhar_tela",
-  "argumentos": {{
-    "nome": "a03core"
-  }}
+  "nome": "analisar_tela",
+  "argumentos": {{}}
 }}
 
-Exemplos CORRETOS:
-{{
-  "tipo": "ferramenta",
-  "nome": "espelhar_tela",
-  "argumentos": {{
-    "nome": "a03core"
-  }}
-}}
-
-{{
-  "tipo": "ferramenta",
-  "nome": "abrir_programa",
-  "argumentos": {{
-    "nome": "spotify"
-  }}
-}}
-
-{{
-  "tipo": "ferramenta",
-  "nome": "abrir_site",
-  "argumentos": {{
-    "url": "youtube.com"
-  }}
-}}
+Use a ferramenta analisar_tela quando o usuário pedir para:
+- analisar a tela
+- dar opinião sobre o que está fazendo
+- ajudar com código/erro na tela
+- dar dica de estudo ou jogo
 """
 
 
@@ -112,7 +97,6 @@ def extrair_json(texto: str):
 
     texto = texto.strip()
 
-    # 1. Tenta encontrar bloco ```json ... ```
     match = re.search(r'```(?:json)?\s*(\{[\s\S]*?\})\s*```', texto)
     if match:
         try:
@@ -120,7 +104,6 @@ def extrair_json(texto: str):
         except:
             pass
 
-    # 2. Tenta encontrar JSON com "tipo": "ferramenta"
     match = re.search(r'\{\s*"tipo"\s*:\s*"ferramenta"[\s\S]*?\}', texto)
     if match:
         try:
@@ -128,7 +111,6 @@ def extrair_json(texto: str):
         except:
             pass
 
-    # 3. Tenta carregar o texto inteiro
     try:
         return json.loads(texto)
     except:
@@ -171,7 +153,6 @@ def conversar(req: MensagemRequest):
                 "raw": conteudo
             }
 
-        # Resposta normal
         agora = datetime.now().isoformat()
         salvar_mensagem(req.session_id, "user", req.mensagem, agora)
         salvar_mensagem(req.session_id, "assistant", conteudo, agora)
@@ -219,4 +200,58 @@ def tool_result(req: ToolResultRequest):
 
     except Exception as e:
         print("Erro no tool-result:", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/analisar-tela")
+def analisar_tela(req: AnalisarTelaRequest):
+    try:
+        prompt_visao = """
+Você é a Sexta-Feira, uma assistente prestativa.
+
+Analise a imagem da tela do usuário e responda em português, de forma natural e direta.
+
+Foque em detectar dificuldades em:
+- Programação / erros de código
+- Estudo / exercícios
+- Jogos
+
+Se perceber dificuldade, dê uma opinião ou dica útil.
+Se estiver tudo normal, apenas comente o que está vendo de forma amigável.
+Não seja longa demais. Máximo 3 a 4 frases.
+"""
+
+        resposta = client.chat.completions.create(
+            model=MODELO_VISAO,
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt_visao},
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{req.imagem_base64}"
+                            }
+                        }
+                    ]
+                }
+            ],
+            max_tokens=300,
+            temperature=0.4
+        )
+
+        conteudo = resposta.choices[0].message.content or "Não consegui analisar a tela."
+
+        agora = datetime.now().isoformat()
+        salvar_mensagem(req.session_id, "user", "[pedido de análise de tela]", agora)
+        salvar_mensagem(req.session_id, "assistant", conteudo, agora)
+
+        return {
+            "tipo": "texto",
+            "resposta": conteudo
+        }
+
+    except Exception as e:
+        print("Erro na análise de tela:", e)
         raise HTTPException(status_code=500, detail=str(e))
