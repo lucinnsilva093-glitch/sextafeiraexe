@@ -20,7 +20,7 @@ client = OpenAI(
     api_key=os.getenv("OPENROUTER_API_KEY")
 )
 
-MODELO = "meta-llama/llama-3.3-70b-instruct:free"
+MODELO = "google/gemma-2-9b-it:free"
 MODELO_VISAO = "openai/gpt-4o-mini"
 
 
