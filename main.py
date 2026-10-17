@@ -21,7 +21,7 @@ client = OpenAI(
 )
 
 MODELO = "deepseek/deepseek-chat-v3-0324"
-MODELO_VISAO = "openai/gpt-4o-mini"  # modelo com visão
+MODELO_VISAO = "openai/gpt-4o-mini"
 
 
 class MensagemRequest(BaseModel):
@@ -59,6 +59,7 @@ REGRAS OBRIGATÓRIAS:
 2. É PROIBIDO escrever qualquer texto antes ou depois do JSON.
 3. É PROIBIDO usar markdown.
 4. Se não for usar ferramenta, responda normalmente em português.
+5. Para editar código: primeiro use ler_arquivo, depois escrever_arquivo com o conteúdo completo atualizado.
 
 Ferramentas disponíveis:
 - abrir_site
@@ -74,20 +75,54 @@ Ferramentas disponíveis:
 - espelhar_tela
 - listar_dispositivos
 - analisar_tela
+- listar_arquivos_projeto
+- ler_arquivo
+- escrever_arquivo
 - salvar_memoria
 
 Formato obrigatório da ferramenta:
 {{
   "tipo": "ferramenta",
-  "nome": "analisar_tela",
+  "nome": "nome_da_ferramenta",
+  "argumentos": {{
+    "chave": "valor"
+  }}
+}}
+
+Exemplos:
+
+Listar arquivos:
+{{
+  "tipo": "ferramenta",
+  "nome": "listar_arquivos_projeto",
   "argumentos": {{}}
 }}
 
-Use a ferramenta analisar_tela quando o usuário pedir para:
-- analisar a tela
-- dar opinião sobre o que está fazendo
-- ajudar com código/erro na tela
-- dar dica de estudo ou jogo
+Ler arquivo:
+{{
+  "tipo": "ferramenta",
+  "nome": "ler_arquivo",
+  "argumentos": {{
+    "nome": "interface.py"
+  }}
+}}
+
+Escrever arquivo:
+{{
+  "tipo": "ferramenta",
+  "nome": "escrever_arquivo",
+  "argumentos": {{
+    "nome": "interface.py",
+    "conteudo": "# código completo aqui"
+  }}
+}}
+
+Analisar tela:
+{{
+  "tipo": "ferramenta",
+  "nome": "analisar_tela",
+  "argumentos": {{}}
+}}
 """
 
 
@@ -136,7 +171,7 @@ def conversar(req: MensagemRequest):
         resposta = client.chat.completions.create(
             model=MODELO,
             messages=messages,
-            max_tokens=500,
+            max_tokens=2000,
             temperature=0.3
         )
 
@@ -183,7 +218,7 @@ def tool_result(req: ToolResultRequest):
         resposta = client.chat.completions.create(
             model=MODELO,
             messages=messages,
-            max_tokens=400,
+            max_tokens=800,
             temperature=0.4
         )
 
