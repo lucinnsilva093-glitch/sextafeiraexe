@@ -20,7 +20,7 @@ client = OpenAI(
     api_key=os.getenv("OPENROUTER_API_KEY")
 )
 
-MODELO = "deepseek/deepseek-chat-v3-0324"
+MODELO = "openrouter/free"
 MODELO_VISAO = "openai/gpt-4o-mini"
 
 
