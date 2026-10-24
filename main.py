@@ -85,6 +85,18 @@ Ferramentas disponíveis:
 - restaurar_last_good
 - reiniciar_sexta
 - salvar_memoria
+- spotify_tocando_agora
+- spotify_play_pause
+- spotify_proxima
+- spotify_anterior
+- spotify_pesquisar_tocar
+- spotify_tocar_playlist
+exemplos:
+- "Toca Imagine Dragons" → spotify_pesquisar_tocar
+- "Toca a playlist treino" → spotify_tocar_playlist
+- "Pausa a música" → spotify_play_pause (acao: pause)
+- "Próxima música" → spotify_proxima
+- "O que está tocando?" → spotify_tocando_agora
 
 Formato obrigatório da ferramenta:
 {{
