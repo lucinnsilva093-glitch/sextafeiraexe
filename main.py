@@ -76,9 +76,16 @@ Ferramentas disponíveis:
 - listar_dispositivos
 - analisar_tela
 - listar_arquivos_projeto
+- listar_arquivos_projeto
 - ler_arquivo
 - escrever_arquivo
-- salvar_memoria
+- reiniciar_sexta
+Quando for melhorar seu próprio código:
+1) use ler_arquivo
+2) use escrever_arquivo com o arquivo completo
+3) se a mudança precisar valer agora, use reiniciar_sexta
+Nunca apague backups .bak
+Só edite arquivos dentro do projeto
 
 Formato obrigatório da ferramenta:
 {{
