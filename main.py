@@ -20,6 +20,7 @@ client = OpenAI(
     api_key=os.getenv("OPENROUTER_API_KEY")
 )
 
+# Se estiver no free, use um modelo :free
 MODELO = "openrouter/free"
 MODELO_VISAO = "openai/gpt-4o-mini"
 
@@ -59,7 +60,9 @@ REGRAS OBRIGATÓRIAS:
 2. É PROIBIDO escrever qualquer texto antes ou depois do JSON.
 3. É PROIBIDO usar markdown.
 4. Se não for usar ferramenta, responda normalmente em português.
-5. Para editar código: primeiro use ler_arquivo, depois escrever_arquivo com o conteúdo completo atualizado.
+5. Para editar código com segurança, prefira escrever_arquivo_seguro.
+6. No modo manutenção autônoma, melhore pouco, sem quebrar funções existentes.
+7. Só reinicie com reiniciar_sexta quando a mudança precisar valer imediatamente.
 
 Ferramentas disponíveis:
 - abrir_site
@@ -76,16 +79,12 @@ Ferramentas disponíveis:
 - listar_dispositivos
 - analisar_tela
 - listar_arquivos_projeto
-- listar_arquivos_projeto
 - ler_arquivo
 - escrever_arquivo
+- escrever_arquivo_seguro
+- restaurar_last_good
 - reiniciar_sexta
-Quando for melhorar seu próprio código:
-1) use ler_arquivo
-2) use escrever_arquivo com o arquivo completo
-3) se a mudança precisar valer agora, use reiniciar_sexta
-Nunca apague backups .bak
-Só edite arquivos dentro do projeto
+- salvar_memoria
 
 Formato obrigatório da ferramenta:
 {{
@@ -98,36 +97,36 @@ Formato obrigatório da ferramenta:
 
 Exemplos:
 
-Listar arquivos:
-{{
-  "tipo": "ferramenta",
-  "nome": "listar_arquivos_projeto",
-  "argumentos": {{}}
-}}
-
 Ler arquivo:
 {{
   "tipo": "ferramenta",
   "nome": "ler_arquivo",
   "argumentos": {{
-    "nome": "interface.py"
+    "nome": "ia.py"
   }}
 }}
 
-Escrever arquivo:
+Escrever com segurança:
 {{
   "tipo": "ferramenta",
-  "nome": "escrever_arquivo",
+  "nome": "escrever_arquivo_seguro",
   "argumentos": {{
-    "nome": "interface.py",
-    "conteudo": "# código completo aqui"
+    "nome": "voz.py",
+    "conteudo": "# codigo completo aqui"
   }}
 }}
 
-Analisar tela:
+Restaurar última versão boa:
 {{
   "tipo": "ferramenta",
-  "nome": "analisar_tela",
+  "nome": "restaurar_last_good",
+  "argumentos": {{}}
+}}
+
+Reiniciar:
+{{
+  "tipo": "ferramenta",
+  "nome": "reiniciar_sexta",
   "argumentos": {{}}
 }}
 """
@@ -139,23 +138,23 @@ def extrair_json(texto: str):
 
     texto = texto.strip()
 
-    match = re.search(r'```(?:json)?\s*(\{[\s\S]*?\})\s*```', texto)
+    match = re.search(r"```(?:json)?\s*(\{[\s\S]*?\})\s*```", texto)
     if match:
         try:
             return json.loads(match.group(1))
-        except:
+        except Exception:
             pass
 
     match = re.search(r'\{\s*"tipo"\s*:\s*"ferramenta"[\s\S]*?\}', texto)
     if match:
         try:
             return json.loads(match.group())
-        except:
+        except Exception:
             pass
 
     try:
         return json.loads(texto)
-    except:
+    except Exception:
         pass
 
     return None
@@ -169,7 +168,7 @@ def home():
 @app.post("/conversar")
 def conversar(req: MensagemRequest):
     try:
-        historico = carregar_historico(req.session_id, limite=12)
+        historico = carregar_historico(req.session_id, limite=10)
 
         messages = [{"role": "system", "content": montar_system_prompt(req.session_id)}]
         messages.extend(historico)
@@ -178,7 +177,7 @@ def conversar(req: MensagemRequest):
         resposta = client.chat.completions.create(
             model=MODELO,
             messages=messages,
-            max_tokens=2000,
+            max_tokens=1200,
             temperature=0.3
         )
 
@@ -212,20 +211,24 @@ def conversar(req: MensagemRequest):
 @app.post("/tool-result")
 def tool_result(req: ToolResultRequest):
     try:
-        historico = carregar_historico(req.session_id, limite=12)
+        historico = carregar_historico(req.session_id, limite=10)
 
         messages = [{"role": "system", "content": montar_system_prompt(req.session_id)}]
         messages.extend(historico)
         messages.append({"role": "user", "content": req.original_message})
         messages.append({
             "role": "user",
-            "content": f"A ferramenta retornou o seguinte resultado:\n{req.tool_result}\n\nResponda naturalmente ao usuário com base nesse resultado. Não mencione JSON nem ferramentas."
+            "content": (
+                f"A ferramenta retornou o seguinte resultado:\n{req.tool_result}\n\n"
+                "Responda naturalmente ao usuário com base nesse resultado. "
+                "Não mencione JSON nem ferramentas."
+            )
         })
 
         resposta = client.chat.completions.create(
             model=MODELO,
             messages=messages,
-            max_tokens=800,
+            max_tokens=500,
             temperature=0.4
         )
 
@@ -260,7 +263,7 @@ Foque em detectar dificuldades em:
 
 Se perceber dificuldade, dê uma opinião ou dica útil.
 Se estiver tudo normal, apenas comente o que está vendo de forma amigável.
-Não seja longa demais. Máximo 3 a 4 frases.
+Máximo 3 a 4 frases.
 """
 
         resposta = client.chat.completions.create(
