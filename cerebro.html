@@ -435,6 +435,19 @@
       }
     };
 
+    // Sincroniza com a API da Sexta
+    async function syncEstado() {
+      try {
+        const r = await fetch("/api/estado");
+        const data = await r.json();
+        if (data && data.mode && data.mode !== mode) {
+        window.SextaBrain.setMode(data.mode);
+       }
+     } catch (e) {}
+   }
+   setInterval(syncEstado, 400);
+   syncEstado();
+
     initNetwork();
     frame();
   </script>
