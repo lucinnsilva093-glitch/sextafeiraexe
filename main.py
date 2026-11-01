@@ -56,6 +56,8 @@ REGRAS OBRIGATÓRIAS:
 2. É PROIBIDO escrever qualquer texto antes ou depois do JSON.
 3. É PROIBIDO usar markdown.
 4. Se não for usar ferramenta, responda normalmente em português.
+5. Use pesquisar_web quando o usuário pedir informação atual:
+notícias, preços, clima, resultados de jogos, fatos recentes, etc.
 
 Ferramentas disponíveis:
 - abrir_site
@@ -78,6 +80,7 @@ Ferramentas disponíveis:
 - spotify_anterior
 - spotify_pesquisar_tocar
 - spotify_tocar_playlist
+- pesquisar_web
 
 Formato obrigatório:
 {{
@@ -89,6 +92,15 @@ Formato obrigatório:
 }}
 
 Exemplos:
+
+Pesquisar na internet:
+{
+  "tipo": "ferramenta",
+  "nome": "pesquisar_web",
+  "argumentos": {
+    "query": "previsão do tempo São Paulo hoje"
+  }
+}
 
 Abrir programa:
 {{
