@@ -15,10 +15,40 @@ from database import (
 
 app = FastAPI(title="Sexta-Feira API")
 
+from fastapi.responses import HTMLResponse
+import time
+
+# Estado global do cérebro (a Sexta do PC atualiza)
+ESTADO_CEREBRO = {
+    "mode": "idle",          # idle | listen | think | speak | process
+    "updated_at": time.time(),
+    "detail": "baseline"
+}
+
 client = OpenAI(
     base_url="https://openrouter.ai/api/v1",
     api_key=os.getenv("OPENROUTER_API_KEY")
 )
+
+from pydantic import BaseModel
+
+class EstadoRequest(BaseModel):
+    mode: str
+    detail: str = ""
+
+@app.get("/api/estado")
+def get_estado():
+    return ESTADO_CEREBRO
+
+@app.post("/api/estado")
+def set_estado(req: EstadoRequest):
+    mode = (req.mode or "idle").lower().strip()
+    if mode not in {"idle", "listen", "think", "speak", "process"}:
+        raise HTTPException(status_code=400, detail="mode inválido")
+    ESTADO_CEREBRO["mode"] = mode
+    ESTADO_CEREBRO["detail"] = req.detail or ""
+    ESTADO_CEREBRO["updated_at"] = time.time()
+    return {"ok": True, "estado": ESTADO_CEREBRO}
 
 MODELO = "openrouter/free"
 MODELO_VISAO = "openai/gpt-4o-mini"
