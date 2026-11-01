@@ -5,25 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Sexta-Feira — Cérebro</title>
   <style>
-    :root {
-      --bg: #02060d;
-      --cyan: #00e5ff;
-      --text: #d7f6ff;
-    }
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      min-height: 100vh;
-      background:
-        radial-gradient(1200px 600px at 50% -10%, #0a2433 0%, transparent 60%),
-        radial-gradient(800px 500px at 80% 100%, #10163a 0%, transparent 50%),
-        var(--bg);
-      color: var(--text);
+      background: #000;
+      color: #c8f7ff;
       font-family: "Segoe UI", system-ui, sans-serif;
       overflow: hidden;
+      min-height: 100vh;
     }
-    .hud {
-      position: relative;
+    .wrap {
       width: 100vw;
       height: 100vh;
       display: grid;
@@ -33,103 +24,71 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 16px 22px;
-      border-bottom: 1px solid rgba(0,229,255,.12);
-      backdrop-filter: blur(8px);
       gap: 12px;
       flex-wrap: wrap;
+      padding: 14px 18px;
+      background: rgba(0,0,0,.72);
+      border-bottom: 1px solid rgba(0,200,255,.12);
     }
-    footer {
-      border-bottom: none;
-      border-top: 1px solid rgba(0,229,255,.12);
-    }
+    footer { border-bottom: none; border-top: 1px solid rgba(0,200,255,.12); }
     h1 {
       margin: 0;
-      font-size: 15px;
-      letter-spacing: .22em;
+      font-size: 13px;
+      letter-spacing: .2em;
       text-transform: uppercase;
-      color: var(--cyan);
-      font-weight: 600;
+      color: #00d8ff;
     }
     .badge {
       font-size: 12px;
-      color: #8fdfff;
-      border: 1px solid rgba(0,229,255,.25);
+      color: #8defff;
+      border: 1px solid rgba(0,216,255,.28);
+      background: rgba(0,40,60,.35);
       padding: 6px 10px;
       border-radius: 999px;
-      background: rgba(0, 40, 55, .45);
     }
     .stage {
       position: relative;
       display: grid;
       place-items: center;
+      background: radial-gradient(circle at center, #031018 0%, #000 70%);
     }
     canvas {
-      width: min(920px, 96vw);
-      height: min(620px, 72vh);
-      border: 1px solid rgba(0,229,255,.12);
-      border-radius: 18px;
-      background: linear-gradient(180deg, rgba(0,40,60,.25), rgba(0,0,0,.15));
-      box-shadow: 0 0 40px rgba(0,229,255,.08), inset 0 0 60px rgba(0,229,255,.04);
+      width: min(980px, 100vw);
+      height: min(640px, 78vh);
     }
-    .modes {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
+    .modes { display: flex; gap: 8px; flex-wrap: wrap; }
     button {
-      appearance: none;
-      border: 1px solid rgba(0,229,255,.28);
-      background: rgba(0, 30, 45, .7);
-      color: var(--text);
+      border: 1px solid rgba(0,216,255,.28);
+      background: rgba(0,20,30,.8);
+      color: #d7f7ff;
       padding: 8px 12px;
       border-radius: 10px;
       cursor: pointer;
       font-size: 12px;
-      letter-spacing: .04em;
-      transition: .15s ease;
-    }
-    button:hover {
-      border-color: var(--cyan);
-      box-shadow: 0 0 12px rgba(0,229,255,.2);
     }
     button.active {
-      background: rgba(0, 229, 255, .12);
-      border-color: var(--cyan);
-      color: white;
-      box-shadow: 0 0 16px rgba(0,229,255,.25);
+      background: rgba(0,216,255,.14);
+      border-color: #00d8ff;
+      box-shadow: 0 0 16px rgba(0,216,255,.22);
     }
     .readout {
       font-size: 12px;
-      color: #9adfff;
-      min-width: 240px;
+      color: #8defff;
       text-align: right;
       line-height: 1.45;
-    }
-    .scanlines {
-      pointer-events: none;
-      position: absolute;
-      inset: 0;
-      background: repeating-linear-gradient(
-        to bottom,
-        transparent 0px,
-        transparent 2px,
-        rgba(0,0,0,.08) 3px
-      );
-      opacity: .25;
+      min-width: 230px;
     }
   </style>
 </head>
 <body>
-  <div class="hud">
+  <div class="wrap">
     <header>
       <h1>Sexta-Feira // Neural Core</h1>
       <div class="badge" id="stateBadge">IDLE · baseline</div>
     </header>
 
     <div class="stage">
-      <canvas id="brain" width="1100" height="720"></canvas>
-      <div class="scanlines"></div>
+      <canvas id="c" width="1200" height="780"></canvas>
     </div>
 
     <footer>
@@ -141,65 +100,24 @@
         <button data-mode="process">Processar</button>
       </div>
       <div class="readout" id="readout">
-        atividade global: 0%<br>
-        sincronia: estável<br>
+        atividade: 0%<br>
         fonte: local
       </div>
     </footer>
   </div>
 
   <script>
-    const canvas = document.getElementById("brain");
+    const canvas = document.getElementById("c");
     const ctx = canvas.getContext("2d");
-    const stateBadge = document.getElementById("stateBadge");
+    const badge = document.getElementById("stateBadge");
     const readout = document.getElementById("readout");
 
     const MODES = {
-      idle: {
-        label: "IDLE · baseline",
-        color: "#00e5ff",
-        global: 0.18,
-        sync: 0.25,
-        speed: 0.6,
-        focus: null,
-        pulse: 0.15
-      },
-      listen: {
-        label: "LISTEN · temporal",
-        color: "#4f7cff",
-        global: 0.42,
-        sync: 0.45,
-        speed: 1.1,
-        focus: "temporal",
-        pulse: 0.35
-      },
-      think: {
-        label: "THINK · prefrontal",
-        color: "#a78bfa",
-        global: 0.62,
-        sync: 0.7,
-        speed: 1.4,
-        focus: "frontal",
-        pulse: 0.55
-      },
-      speak: {
-        label: "SPEAK · motor / broca",
-        color: "#22d3a0",
-        global: 0.55,
-        sync: 0.6,
-        speed: 1.25,
-        focus: "broca",
-        pulse: 0.7
-      },
-      process: {
-        label: "PROCESS · wide network",
-        color: "#ffb020",
-        global: 0.8,
-        sync: 0.85,
-        speed: 1.8,
-        focus: "all",
-        pulse: 0.9
-      }
+      idle:    { label: "IDLE · baseline",          color: "#00d8ff", energy: 0.22, speed: 0.7,  core: 0.35 },
+      listen:  { label: "LISTEN · temporal",        color: "#4ea2ff", energy: 0.48, speed: 1.1,  core: 0.55 },
+      think:   { label: "THINK · prefrontal",       color: "#8b7cff", energy: 0.68, speed: 1.35, core: 0.8  },
+      speak:   { label: "SPEAK · motor / broca",    color: "#2fe3a5", energy: 0.58, speed: 1.2,  core: 0.7  },
+      process: { label: "PROCESS · wide network",   color: "#ffc24a", energy: 0.9,  speed: 1.8,  core: 1.0  }
     };
 
     let mode = "idle";
@@ -209,80 +127,116 @@
     let nodes = [];
     let edges = [];
 
-    function brainPoint(angle, rx, ry, cx = 550, cy = 360) {
-      const wobble = 1 + 0.08 * Math.sin(angle * 3) + 0.05 * Math.cos(angle * 5);
-      return {
-        x: cx + Math.cos(angle) * rx * wobble,
-        y: cy + Math.sin(angle) * ry * wobble * 0.92
-      };
+    // Contorno lateral do cérebro (normalizado 0..1)
+    // Desenhado para parecer o da referência
+    const OUTLINE = [
+      [0.20,0.42],[0.22,0.30],[0.28,0.20],[0.38,0.13],[0.50,0.10],
+      [0.62,0.12],[0.73,0.18],[0.82,0.28],[0.88,0.40],[0.90,0.52],
+      [0.88,0.63],[0.82,0.72],[0.74,0.78],[0.66,0.82],[0.58,0.86],
+      [0.52,0.92],[0.47,0.96],[0.43,0.93],[0.44,0.86],[0.40,0.82],
+      [0.32,0.78],[0.25,0.70],[0.21,0.58],[0.20,0.42]
+    ];
+
+    function toCanvas(p) {
+      // padding e escala
+      const x0 = 160, y0 = 80, w = 880, h = 620;
+      return { x: x0 + p[0] * w, y: y0 + p[1] * h };
     }
 
-    function initNetwork() {
+    function pointInBrain(x, y) {
+      // ray casting no polígono outline
+      const pts = OUTLINE.map(toCanvas);
+      let inside = false;
+      for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+        const xi = pts[i].x, yi = pts[i].y;
+        const xj = pts[j].x, yj = pts[j].y;
+        const intersect = ((yi > y) !== (yj > y)) &&
+          (x < (xj - xi) * (y - yi) / ((yj - yi) || 1e-6) + xi);
+        if (intersect) inside = !inside;
+      }
+      return inside;
+    }
+
+    function regionOf(x, y) {
+      // aproximações por zona
+      if (x < 420 && y < 360) return "broca";
+      if (x < 520) return "frontal";
+      if (x > 780 && y < 420) return "occipital";
+      if (y > 520) return "stem";
+      if (y < 280) return "parietal";
+      return "temporal";
+    }
+
+    function initMesh() {
       nodes = [];
       edges = [];
 
-      for (let i = 0; i < 160; i++) {
-        const a = Math.random() * Math.PI * 2;
-        const r = 0.25 + Math.random() * 0.75;
-        const p = brainPoint(a, 320 * r, 250 * r);
-        p.x += (Math.random() - 0.5) * 26;
-        p.y += (Math.random() - 0.5) * 26;
+      // preenche o volume com pontos
+      let guard = 0;
+      while (nodes.length < 420 && guard < 20000) {
+        guard++;
+        const x = 160 + Math.random() * 880;
+        const y = 80 + Math.random() * 620;
+        if (!pointInBrain(x, y)) continue;
 
-        let region = "core";
-        if (p.x < 430 && p.y < 340) region = "broca";
-        else if (p.x < 500) region = "frontal";
-        else if (p.x > 650 && p.y < 380) region = "temporalR";
-        else if (p.x < 420 && p.y > 300) region = "temporalL";
-        else if (p.y > 430) region = "occipital";
-        else if (p.y < 300) region = "parietal";
+        // densidade maior no miolo
+        const cx = 560, cy = 360;
+        const dist = Math.hypot(x - cx, y - cy);
+        if (dist < 90 && Math.random() < 0.35) {
+          // ok, núcleo denso
+        } else if (Math.random() < 0.15) {
+          continue;
+        }
 
         nodes.push({
-          ...p,
-          region,
+          x, y,
+          z: Math.random(), // profundidade fake
           phase: Math.random() * Math.PI * 2,
-          base: 0.2 + Math.random() * 0.5,
-          fire: 0
+          base: 0.3 + Math.random() * 0.7,
+          fire: 0,
+          region: regionOf(x, y)
         });
       }
 
+      // conexões tipo wireframe
       for (let i = 0; i < nodes.length; i++) {
-        for (let j = i + 1; j < nodes.length; j++) {
-          const dx = nodes[i].x - nodes[j].x;
-          const dy = nodes[i].y - nodes[j].y;
-          const d = Math.hypot(dx, dy);
-          if (d < 70 || (d < 160 && Math.random() < 0.03)) {
-            edges.push({ a: i, b: j, d });
-          }
+        // liga aos vizinhos mais próximos
+        const dists = [];
+        for (let j = 0; j < nodes.length; j++) {
+          if (i === j) continue;
+          const d = Math.hypot(nodes[i].x - nodes[j].x, nodes[i].y - nodes[j].y);
+          if (d < 54) dists.push({ j, d });
+        }
+        dists.sort((a, b) => a.d - b.d);
+        for (const n of dists.slice(0, 5)) {
+          if (i < n.j) edges.push({ a: i, b: n.j, d: n.d });
         }
       }
     }
 
-    function regionBoost(node, m) {
-      if (!m.focus || m.focus === "all") return m.focus === "all" ? 1 : 0.15;
-      if (m.focus === "frontal") return (node.region === "frontal" || node.region === "parietal") ? 1 : 0.2;
-      if (m.focus === "temporal") return (node.region === "temporalL" || node.region === "temporalR") ? 1 : 0.18;
-      if (m.focus === "broca") return (node.region === "broca" || node.region === "frontal") ? 1 : 0.2;
+    function focusBoost(node, mname) {
+      if (mname === "process") return 1;
+      if (mname === "think") return (node.region === "frontal" || node.region === "parietal") ? 1 : 0.25;
+      if (mname === "listen") return (node.region === "temporal") ? 1 : 0.22;
+      if (mname === "speak") return (node.region === "broca" || node.region === "frontal") ? 1 : 0.22;
       return 0.2;
     }
 
-    function drawBrainOutline(color, alpha = 0.35) {
+    function drawOutline(color) {
+      const pts = OUTLINE.map(toCanvas);
       ctx.save();
       ctx.strokeStyle = color;
-      ctx.globalAlpha = alpha;
-      ctx.lineWidth = 2;
+      ctx.globalAlpha = 0.55;
+      ctx.lineWidth = 1.4;
       ctx.beginPath();
-      for (let i = 0; i <= 200; i++) {
-        const a = (i / 200) * Math.PI * 2;
-        const p = brainPoint(a, 340, 265);
-        if (i === 0) ctx.moveTo(p.x, p.y);
-        else ctx.lineTo(p.x, p.y);
-      }
+      pts.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y));
       ctx.closePath();
       ctx.stroke();
 
-      ctx.beginPath();
-      ctx.moveTo(550, 140);
-      ctx.bezierCurveTo(560, 250, 540, 420, 550, 560);
+      // brilho externo
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 18;
+      ctx.globalAlpha = 0.2;
       ctx.stroke();
       ctx.restore();
     }
@@ -300,97 +254,106 @@
       t += 0.016 * MODES[mode].speed;
       const m = MODES[mode];
 
+      // fundo
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const bg = ctx.createRadialGradient(600, 390, 40, 600, 390, 520);
+      bg.addColorStop(0, "#041722");
+      bg.addColorStop(1, "#000000");
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      ctx.save();
-      ctx.strokeStyle = "rgba(0,229,255,0.05)";
-      ctx.lineWidth = 1;
-      for (let x = 0; x < canvas.width; x += 40) {
-        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
-      }
-      for (let y = 0; y < canvas.height; y += 40) {
-        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
-      }
-      ctx.restore();
+      // núcleo luminoso (como na imagem)
+      const corePulse = 0.7 + 0.3 * Math.sin(t * 2.5);
+      const coreR = (90 + m.core * 60) * corePulse;
+      const core = ctx.createRadialGradient(560, 360, 0, 560, 360, coreR);
+      core.addColorStop(0, "#ffffff");
+      core.addColorStop(0.12, m.color);
+      core.addColorStop(0.35, "rgba(0,180,255,0.25)");
+      core.addColorStop(1, "transparent");
+      ctx.fillStyle = core;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      drawBrainOutline(m.color, 0.4);
+      drawOutline(m.color);
 
+      // arestas
       for (const e of edges) {
-        const na = nodes[e.a];
-        const nb = nodes[e.b];
-        const act = (na.fire + nb.fire) * 0.5;
-        if (act < 0.08) continue;
-
+        const a = nodes[e.a];
+        const b = nodes[e.b];
+        const act = (a.fire + b.fire) * 0.5;
+        const baseAlpha = 0.04 + m.energy * 0.05;
+        const alpha = Math.min(0.55, baseAlpha + act * 0.45);
         ctx.strokeStyle = m.color;
-        ctx.globalAlpha = Math.min(0.55, act * 0.55);
-        ctx.lineWidth = 1 + act * 1.5;
+        ctx.globalAlpha = alpha;
+        ctx.lineWidth = 0.7 + act * 1.2;
         ctx.beginPath();
-        ctx.moveTo(na.x, na.y);
-        ctx.lineTo(nb.x, nb.y);
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
         ctx.stroke();
 
-        const pulse = (t * 0.9 + e.a * 0.01) % 1;
-        const px = na.x + (nb.x - na.x) * pulse;
-        const py = na.y + (nb.y - na.y) * pulse;
-        ctx.globalAlpha = act;
-        ctx.fillStyle = "#ffffff";
-        ctx.beginPath();
-        ctx.arc(px, py, 1.6, 0, Math.PI * 2);
-        ctx.fill();
+        // sinal viajando
+        if (act > 0.2 || m.energy > 0.5) {
+          const p = (t * 0.8 + e.a * 0.013) % 1;
+          const px = a.x + (b.x - a.x) * p;
+          const py = a.y + (b.y - a.y) * p;
+          ctx.globalAlpha = 0.4 + act * 0.6;
+          ctx.fillStyle = "#fff";
+          ctx.beginPath();
+          ctx.arc(px, py, 1.2, 0, Math.PI * 2);
+          ctx.fill();
+        }
       }
-      ctx.globalAlpha = 1;
 
+      // nós
       let avg = 0;
       for (const n of nodes) {
-        const boost = regionBoost(n, m);
-        const wave = 0.5 + 0.5 * Math.sin(t * 2.2 + n.phase) * (0.4 + 0.6 * m.sync);
-        const spikeChance = m.global * boost * n.base;
-        if (Math.random() < spikeChance * 0.07) n.fire = 1;
-        n.fire *= 0.90;
+        const boost = focusBoost(n, mode);
+        const wave = 0.5 + 0.5 * Math.sin(t * 2 + n.phase);
+        if (Math.random() < m.energy * boost * n.base * 0.05) n.fire = 1;
+        n.fire *= 0.9;
 
-        const intensity = Math.min(1, n.fire * 0.9 + wave * m.global * boost * 0.35);
+        const intensity = Math.min(1, n.fire * 0.95 + wave * m.energy * boost * 0.25);
         avg += intensity;
 
-        const r = 1.4 + intensity * 4.2;
-        const g = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, r * 3);
+        // profundidade: nós "atrás" mais fracos
+        const depth = 0.45 + n.z * 0.55;
+        const r = (1.1 + intensity * 2.8) * depth;
+
+        ctx.globalAlpha = (0.25 + intensity * 0.75) * depth;
+        const g = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, r * 3.5);
         g.addColorStop(0, m.color);
         g.addColorStop(1, "transparent");
         ctx.fillStyle = g;
-        ctx.globalAlpha = 0.25 + intensity * 0.75;
         ctx.beginPath();
-        ctx.arc(n.x, n.y, r * 2.2, 0, Math.PI * 2);
+        ctx.arc(n.x, n.y, r * 2.5, 0, Math.PI * 2);
         ctx.fill();
 
-        ctx.globalAlpha = 0.7 + intensity * 0.3;
-        ctx.fillStyle = intensity > 0.6 ? "#fff" : m.color;
+        ctx.globalAlpha = 0.65 * depth;
+        ctx.fillStyle = intensity > 0.65 ? "#fff" : m.color;
         ctx.beginPath();
-        ctx.arc(n.x, n.y, Math.max(1.2, r * 0.35), 0, Math.PI * 2);
+        ctx.arc(n.x, n.y, Math.max(0.8, r * 0.35), 0, Math.PI * 2);
         ctx.fill();
       }
       ctx.globalAlpha = 1;
       avg /= nodes.length;
 
+      // sulcos leves (linhas internas curvas)
       ctx.save();
-      ctx.translate(80, 640);
+      ctx.globalAlpha = 0.12;
       ctx.strokeStyle = m.color;
-      ctx.globalAlpha = 0.8;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      for (let x = 0; x < 940; x++) {
-        const y =
-          Math.sin(x * 0.03 + t * 3) * (8 + m.pulse * 10) +
-          Math.sin(x * 0.01 - t * 2) * (4 + avg * 12) +
-          Math.sin(x * 0.12 + t * 6) * (m.pulse > 0.5 ? 3 : 0.8);
-        if (x === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
+      ctx.lineWidth = 1;
+      for (let i = 0; i < 6; i++) {
+        ctx.beginPath();
+        const y = 220 + i * 55 + Math.sin(t + i) * 4;
+        ctx.moveTo(280, y);
+        ctx.bezierCurveTo(420, y - 30, 620, y + 25, 820, y - 10);
+        ctx.stroke();
       }
-      ctx.stroke();
       ctx.restore();
 
-      stateBadge.textContent = m.label + (detail ? ` · ${detail}` : "");
+      badge.textContent = m.label + (detail ? ` · ${detail}` : "");
       readout.innerHTML =
-        `atividade global: ${Math.round(avg * 100)}%<br>` +
-        `sincronia: ${Math.round(m.sync * 100)}% · modo ${mode}<br>` +
+        `atividade: ${Math.round(avg * 100)}%<br>` +
+        `modo: ${mode}<br>` +
         `fonte: ${source}`;
 
       requestAnimationFrame(frame);
@@ -409,18 +372,12 @@
         const data = await r.json();
         if (data && data.mode) {
           detail = data.detail || "";
-          if (data.mode !== mode || source !== "api") {
-            setMode(data.mode, "api");
-          } else {
-            source = "api";
-          }
+          setMode(data.mode, "api");
         }
-      } catch (e) {
-        // se abrir o arquivo local, a API pode não existir
-      }
+      } catch (e) {}
     }
 
-    initNetwork();
+    initMesh();
     frame();
     syncEstado();
     setInterval(syncEstado, 400);
