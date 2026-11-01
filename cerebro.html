@@ -8,12 +8,6 @@
     :root {
       --bg: #02060d;
       --cyan: #00e5ff;
-      --cyan-dim: #0a4a5c;
-      --blue: #4f7cff;
-      --purple: #a78bfa;
-      --green: #22d3a0;
-      --orange: #ffb020;
-      --red: #ff4d6d;
       --text: #d7f6ff;
     }
     * { box-sizing: border-box; }
@@ -42,12 +36,12 @@
       padding: 16px 22px;
       border-bottom: 1px solid rgba(0,229,255,.12);
       backdrop-filter: blur(8px);
+      gap: 12px;
+      flex-wrap: wrap;
     }
     footer {
       border-bottom: none;
       border-top: 1px solid rgba(0,229,255,.12);
-      gap: 12px;
-      flex-wrap: wrap;
     }
     h1 {
       margin: 0;
@@ -75,11 +69,8 @@
       height: min(620px, 72vh);
       border: 1px solid rgba(0,229,255,.12);
       border-radius: 18px;
-      background:
-        linear-gradient(180deg, rgba(0,40,60,.25), rgba(0,0,0,.15));
-      box-shadow:
-        0 0 40px rgba(0,229,255,.08),
-        inset 0 0 60px rgba(0,229,255,.04);
+      background: linear-gradient(180deg, rgba(0,40,60,.25), rgba(0,0,0,.15));
+      box-shadow: 0 0 40px rgba(0,229,255,.08), inset 0 0 60px rgba(0,229,255,.04);
     }
     .modes {
       display: flex;
@@ -98,7 +89,10 @@
       letter-spacing: .04em;
       transition: .15s ease;
     }
-    button:hover { border-color: var(--cyan); box-shadow: 0 0 12px rgba(0,229,255,.2); }
+    button:hover {
+      border-color: var(--cyan);
+      box-shadow: 0 0 12px rgba(0,229,255,.2);
+    }
     button.active {
       background: rgba(0, 229, 255, .12);
       border-color: var(--cyan);
@@ -108,8 +102,9 @@
     .readout {
       font-size: 12px;
       color: #9adfff;
-      min-width: 220px;
+      min-width: 240px;
       text-align: right;
+      line-height: 1.45;
     }
     .scanlines {
       pointer-events: none;
@@ -146,8 +141,9 @@
         <button data-mode="process">Processar</button>
       </div>
       <div class="readout" id="readout">
-        atividade global: 0%<br/>
-        sincronia: estável
+        atividade global: 0%<br>
+        sincronia: estável<br>
+        fonte: local
       </div>
     </footer>
   </div>
@@ -158,8 +154,6 @@
     const stateBadge = document.getElementById("stateBadge");
     const readout = document.getElementById("readout");
 
-    // Modos inspirados em padrões macro de atividade cerebral
-    // (estilizado / cinematográfico, não é diagnóstico médico)
     const MODES = {
       idle: {
         label: "IDLE · baseline",
@@ -167,7 +161,7 @@
         global: 0.18,
         sync: 0.25,
         speed: 0.6,
-        focus: null,          // atividade difusa baixa
+        focus: null,
         pulse: 0.15
       },
       listen: {
@@ -176,7 +170,7 @@
         global: 0.42,
         sync: 0.45,
         speed: 1.1,
-        focus: "temporal",    // lados / "ouvido"
+        focus: "temporal",
         pulse: 0.35
       },
       think: {
@@ -209,12 +203,13 @@
     };
 
     let mode = "idle";
+    let source = "local";
+    let detail = "";
     let t = 0;
     let nodes = [];
     let edges = [];
 
-    function brainPoint(angle, rx, ry, cx=550, cy=360) {
-      // Contorno tipo cérebro (superelipse irregular)
+    function brainPoint(angle, rx, ry, cx = 550, cy = 360) {
       const wobble = 1 + 0.08 * Math.sin(angle * 3) + 0.05 * Math.cos(angle * 5);
       return {
         x: cx + Math.cos(angle) * rx * wobble,
@@ -225,22 +220,11 @@
     function initNetwork() {
       nodes = [];
       edges = [];
-      const regions = {
-        frontal: [],
-        temporalL: [],
-        temporalR: [],
-        parietal: [],
-        occipital: [],
-        broca: [],
-        core: []
-      };
 
-      // Nós em regiões
       for (let i = 0; i < 160; i++) {
         const a = Math.random() * Math.PI * 2;
         const r = 0.25 + Math.random() * 0.75;
         const p = brainPoint(a, 320 * r, 250 * r);
-        // jitter interno
         p.x += (Math.random() - 0.5) * 26;
         p.y += (Math.random() - 0.5) * 26;
 
@@ -252,19 +236,15 @@
         else if (p.y > 430) region = "occipital";
         else if (p.y < 300) region = "parietal";
 
-        const node = {
+        nodes.push({
           ...p,
           region,
           phase: Math.random() * Math.PI * 2,
           base: 0.2 + Math.random() * 0.5,
           fire: 0
-        };
-        nodes.push(node);
-        if (regions[region]) regions[region].push(node);
-        else regions.core.push(node);
+        });
       }
 
-      // Conexões locais + algumas longas
       for (let i = 0; i < nodes.length; i++) {
         for (let j = i + 1; j < nodes.length; j++) {
           const dx = nodes[i].x - nodes[j].x;
@@ -279,13 +259,13 @@
 
     function regionBoost(node, m) {
       if (!m.focus || m.focus === "all") return m.focus === "all" ? 1 : 0.15;
-      if (m.focus === "frontal") return node.region === "frontal" || node.region === "parietal" ? 1 : 0.2;
-      if (m.focus === "temporal") return node.region === "temporalL" || node.region === "temporalR" ? 1 : 0.18;
-      if (m.focus === "broca") return node.region === "broca" || node.region === "frontal" ? 1 : 0.2;
+      if (m.focus === "frontal") return (node.region === "frontal" || node.region === "parietal") ? 1 : 0.2;
+      if (m.focus === "temporal") return (node.region === "temporalL" || node.region === "temporalR") ? 1 : 0.18;
+      if (m.focus === "broca") return (node.region === "broca" || node.region === "frontal") ? 1 : 0.2;
       return 0.2;
     }
 
-    function drawBrainOutline(color, alpha=0.35) {
+    function drawBrainOutline(color, alpha = 0.35) {
       ctx.save();
       ctx.strokeStyle = color;
       ctx.globalAlpha = alpha;
@@ -300,12 +280,20 @@
       ctx.closePath();
       ctx.stroke();
 
-      // divisão hemisférios
       ctx.beginPath();
       ctx.moveTo(550, 140);
       ctx.bezierCurveTo(560, 250, 540, 420, 550, 560);
       ctx.stroke();
       ctx.restore();
+    }
+
+    function setMode(next, from = "local") {
+      if (!MODES[next]) return;
+      mode = next;
+      source = from;
+      document.querySelectorAll("button[data-mode]").forEach(b => {
+        b.classList.toggle("active", b.dataset.mode === next);
+      });
     }
 
     function frame() {
@@ -314,7 +302,6 @@
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // grid HUD
       ctx.save();
       ctx.strokeStyle = "rgba(0,229,255,0.05)";
       ctx.lineWidth = 1;
@@ -328,12 +315,12 @@
 
       drawBrainOutline(m.color, 0.4);
 
-      // edges / sinais
       for (const e of edges) {
         const na = nodes[e.a];
         const nb = nodes[e.b];
         const act = (na.fire + nb.fire) * 0.5;
         if (act < 0.08) continue;
+
         ctx.strokeStyle = m.color;
         ctx.globalAlpha = Math.min(0.55, act * 0.55);
         ctx.lineWidth = 1 + act * 1.5;
@@ -342,7 +329,6 @@
         ctx.lineTo(nb.x, nb.y);
         ctx.stroke();
 
-        // pulso viajando na sinapse
         const pulse = (t * 0.9 + e.a * 0.01) % 1;
         const px = na.x + (nb.x - na.x) * pulse;
         const py = na.y + (nb.y - na.y) * pulse;
@@ -354,15 +340,11 @@
       }
       ctx.globalAlpha = 1;
 
-      // nodes / spikes
       let avg = 0;
       for (const n of nodes) {
         const boost = regionBoost(n, m);
-        const wave =
-          0.5 + 0.5 * Math.sin(t * 2.2 + n.phase) *
-          (0.4 + 0.6 * m.sync);
+        const wave = 0.5 + 0.5 * Math.sin(t * 2.2 + n.phase) * (0.4 + 0.6 * m.sync);
         const spikeChance = m.global * boost * n.base;
-        // spike discreto tipo potencial de ação estilizado
         if (Math.random() < spikeChance * 0.07) n.fire = 1;
         n.fire *= 0.90;
 
@@ -388,7 +370,6 @@
       ctx.globalAlpha = 1;
       avg /= nodes.length;
 
-      // ondas macro (tipo EEG estilizado embaixo)
       ctx.save();
       ctx.translate(80, 640);
       ctx.strokeStyle = m.color;
@@ -406,50 +387,43 @@
       ctx.stroke();
       ctx.restore();
 
-      stateBadge.textContent = m.label;
+      stateBadge.textContent = m.label + (detail ? ` · ${detail}` : "");
       readout.innerHTML =
-        `atividade global: ${Math.round(avg * 100)}%<br/>` +
-        `sincronia: ${Math.round(m.sync * 100)}% · modo ${mode}`;
+        `atividade global: ${Math.round(avg * 100)}%<br>` +
+        `sincronia: ${Math.round(m.sync * 100)}% · modo ${mode}<br>` +
+        `fonte: ${source}`;
 
       requestAnimationFrame(frame);
     }
 
-    // UI
     document.querySelectorAll("button[data-mode]").forEach(btn => {
-      btn.addEventListener("click", () => {
-        document.querySelectorAll("button[data-mode]").forEach(b => b.classList.remove("active"));
-        btn.classList.add("active");
-        mode = btn.dataset.mode;
-      });
+      btn.addEventListener("click", () => setMode(btn.dataset.mode, "manual"));
     });
 
-    // API pública para a Sexta controlar depois:
-    // window.SextaBrain.setMode('think' | 'listen' | 'speak' | 'process' | 'idle')
-    window.SextaBrain = {
-      setMode(next) {
-        if (!MODES[next]) return;
-        mode = next;
-        document.querySelectorAll("button[data-mode]").forEach(b => {
-          b.classList.toggle("active", b.dataset.mode === next);
-        });
-      }
-    };
+    window.SextaBrain = { setMode };
 
-    // Sincroniza com a API da Sexta
     async function syncEstado() {
       try {
         const r = await fetch("/api/estado");
+        if (!r.ok) return;
         const data = await r.json();
-        if (data && data.mode && data.mode !== mode) {
-        window.SextaBrain.setMode(data.mode);
-       }
-     } catch (e) {}
-   }
-   setInterval(syncEstado, 400);
-   syncEstado();
+        if (data && data.mode) {
+          detail = data.detail || "";
+          if (data.mode !== mode || source !== "api") {
+            setMode(data.mode, "api");
+          } else {
+            source = "api";
+          }
+        }
+      } catch (e) {
+        // se abrir o arquivo local, a API pode não existir
+      }
+    }
 
     initNetwork();
     frame();
+    syncEstado();
+    setInterval(syncEstado, 400);
   </script>
 </body>
 </html>
