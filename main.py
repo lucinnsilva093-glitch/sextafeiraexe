@@ -82,6 +82,10 @@ Ferramentas disponíveis:
 - spotify_tocar_playlist
 - pesquisar_web
 
+
+Se pesquisar_web retornar links de clima/notícias, isso conta como sucesso.
+Nunca diga que não conseguiu se houver resultados.
+
 Formato obrigatório:
 {{
   "tipo": "ferramenta",
@@ -262,7 +266,10 @@ def tool_result(req: ToolResultRequest):
             "role": "user",
             "content": (
                 f"A ferramenta retornou o seguinte resultado:\n{req.tool_result}\n\n"
-                "Responda naturalmente ao usuário com base nesse resultado. "
+                "Use ESSE resultado para responder. "
+                "Não diga que a busca falhou se houver links ou trechos. "
+                "Resuma em português de forma natural. "
+                "Se for previsão do tempo e só houver sites, cite os sites e ofereça abrir um. "
                 "Não mencione JSON nem ferramentas."
             )
         })
