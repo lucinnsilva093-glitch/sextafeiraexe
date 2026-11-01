@@ -8,9 +8,7 @@ import re
 from database import (
     salvar_mensagem,
     carregar_historico,
-    salvar_fato,
     buscar_fatos,
-    deletar_fato
 )
 
 app = FastAPI(title="Sexta-Feira API")
@@ -20,7 +18,6 @@ client = OpenAI(
     api_key=os.getenv("OPENROUTER_API_KEY")
 )
 
-# Se estiver no free, use um modelo :free
 MODELO = "openrouter/free"
 MODELO_VISAO = "openai/gpt-4o-mini"
 
@@ -55,14 +52,10 @@ Informações do usuário:
 {memorias if memorias.strip() else "Nenhuma memória salva."}
 
 REGRAS OBRIGATÓRIAS:
-
 1. Quando for usar ferramenta, responda SOMENTE com o JSON puro.
 2. É PROIBIDO escrever qualquer texto antes ou depois do JSON.
 3. É PROIBIDO usar markdown.
 4. Se não for usar ferramenta, responda normalmente em português.
-5. Para editar código com segurança, prefira escrever_arquivo_seguro.
-6. No modo manutenção autônoma, melhore pouco, sem quebrar funções existentes.
-7. Só reinicie com reiniciar_sexta quando a mudança precisar valer imediatamente.
 
 Ferramentas disponíveis:
 - abrir_site
@@ -78,12 +71,6 @@ Ferramentas disponíveis:
 - espelhar_tela
 - listar_dispositivos
 - analisar_tela
-- listar_arquivos_projeto
-- ler_arquivo
-- escrever_arquivo
-- escrever_arquivo_seguro
-- restaurar_last_good
-- reiniciar_sexta
 - salvar_memoria
 - spotify_tocando_agora
 - spotify_play_pause
@@ -91,14 +78,8 @@ Ferramentas disponíveis:
 - spotify_anterior
 - spotify_pesquisar_tocar
 - spotify_tocar_playlist
-exemplos:
-- "Toca Imagine Dragons" → spotify_pesquisar_tocar
-- "Toca a playlist treino" → spotify_tocar_playlist
-- "Pausa a música" → spotify_play_pause (acao: pause)
-- "Próxima música" → spotify_proxima
-- "O que está tocando?" → spotify_tocando_agora
 
-Formato obrigatório da ferramenta:
+Formato obrigatório:
 {{
   "tipo": "ferramenta",
   "nome": "nome_da_ferramenta",
@@ -109,36 +90,73 @@ Formato obrigatório da ferramenta:
 
 Exemplos:
 
-Ler arquivo:
+Abrir programa:
 {{
   "tipo": "ferramenta",
-  "nome": "ler_arquivo",
+  "nome": "abrir_programa",
   "argumentos": {{
-    "nome": "ia.py"
+    "nome": "spotify"
   }}
 }}
 
-Escrever com segurança:
+Aumentar volume:
 {{
   "tipo": "ferramenta",
-  "nome": "escrever_arquivo_seguro",
+  "nome": "controlar_volume",
   "argumentos": {{
-    "nome": "voz.py",
-    "conteudo": "# codigo completo aqui"
+    "acao": "aumentar"
   }}
 }}
 
-Restaurar última versão boa:
+Diminuir volume:
 {{
   "tipo": "ferramenta",
-  "nome": "restaurar_last_good",
-  "argumentos": {{}}
+  "nome": "controlar_volume",
+  "argumentos": {{
+    "acao": "diminuir"
+  }}
 }}
 
-Reiniciar:
+Travar PC:
 {{
   "tipo": "ferramenta",
-  "nome": "reiniciar_sexta",
+  "nome": "controlar_pc",
+  "argumentos": {{
+    "acao": "travar"
+  }}
+}}
+
+Abrir site:
+{{
+  "tipo": "ferramenta",
+  "nome": "abrir_site",
+  "argumentos": {{
+    "url": "youtube.com"
+  }}
+}}
+
+Spotify - tocar música:
+{{
+  "tipo": "ferramenta",
+  "nome": "spotify_pesquisar_tocar",
+  "argumentos": {{
+    "query": "Imagine Dragons"
+  }}
+}}
+
+Spotify - pausar:
+{{
+  "tipo": "ferramenta",
+  "nome": "spotify_play_pause",
+  "argumentos": {{
+    "acao": "pause"
+  }}
+}}
+
+Spotify - próxima:
+{{
+  "tipo": "ferramenta",
+  "nome": "spotify_proxima",
   "argumentos": {{}}
 }}
 """
@@ -189,8 +207,8 @@ def conversar(req: MensagemRequest):
         resposta = client.chat.completions.create(
             model=MODELO,
             messages=messages,
-            max_tokens=1200,
-            temperature=0.3
+            max_tokens=700,
+            temperature=0.2
         )
 
         conteudo = resposta.choices[0].message.content or ""
@@ -240,8 +258,8 @@ def tool_result(req: ToolResultRequest):
         resposta = client.chat.completions.create(
             model=MODELO,
             messages=messages,
-            max_tokens=500,
-            temperature=0.4
+            max_tokens=400,
+            temperature=0.3
         )
 
         conteudo = resposta.choices[0].message.content or ""
@@ -265,16 +283,9 @@ def analisar_tela(req: AnalisarTelaRequest):
     try:
         prompt_visao = """
 Você é a Sexta-Feira, uma assistente prestativa.
-
 Analise a imagem da tela do usuário e responda em português, de forma natural e direta.
-
-Foque em detectar dificuldades em:
-- Programação / erros de código
-- Estudo / exercícios
-- Jogos
-
-Se perceber dificuldade, dê uma opinião ou dica útil.
-Se estiver tudo normal, apenas comente o que está vendo de forma amigável.
+Foque em dificuldades de programação, estudo ou jogos.
+Se estiver tudo normal, comente de forma breve.
 Máximo 3 a 4 frases.
 """
 
