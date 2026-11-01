@@ -94,13 +94,13 @@ Formato obrigatório:
 Exemplos:
 
 Pesquisar na internet:
-{
+{{
   "tipo": "ferramenta",
   "nome": "pesquisar_web",
-  "argumentos": {
+  "argumentos": {{
     "query": "previsão do tempo São Paulo hoje"
-  }
-}
+  }}
+}}
 
 Abrir programa:
 {{
