@@ -5,6 +5,8 @@ from datetime import datetime
 import os
 import json
 import re
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from database import (
     salvar_mensagem,
     carregar_historico,
@@ -21,6 +23,83 @@ client = OpenAI(
 MODELO = "openrouter/free"
 MODELO_VISAO = "openai/gpt-4o-mini"
 
+@app.get("/api/memorias")
+def api_memorias(session_id: str = "local"):
+    try:
+        return {"session_id": session_id, "fatos": buscar_fatos(session_id)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/cerebro", response_class=HTMLResponse)
+def cerebro():
+    return """
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Sexta-Feira — Cérebro</title>
+  <style>
+    body{margin:0;font-family:Segoe UI,Arial,sans-serif;background:#0a0e17;color:#d0e8ff}
+    header{padding:20px 24px;border-bottom:1px solid #123040;display:flex;justify-content:space-between;align-items:center}
+    h1{margin:0;color:#00d4ff;font-size:22px}
+    .status{color:#00ff9f}
+    main{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:16px}
+    section{background:#0d1520;border:1px solid #1f3a4d;border-radius:12px;padding:14px;min-height:50vh}
+    h2{margin:0 0 12px;color:#00d4ff;font-size:16px}
+    pre{white-space:pre-wrap;word-break:break-word;background:#0a0e17;padding:12px;border-radius:8px;max-height:65vh;overflow:auto}
+    button{background:#003344;color:#fff;border:1px solid #00d4ff;border-radius:8px;padding:8px 12px;cursor:pointer}
+    @media(max-width:800px){main{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Sexta-Feira · Cérebro</h1>
+    <div>
+      <span class="status" id="status">● ...</span>
+      <button onclick="carregar()">Atualizar</button>
+    </div>
+  </header>
+  <main>
+    <section>
+      <h2>Memórias</h2>
+      <pre id="memorias">carregando...</pre>
+    </section>
+    <section>
+      <h2>Histórico</h2>
+      <pre id="historico">carregando...</pre>
+    </section>
+  </main>
+  <script>
+    async function carregar(){
+      try{
+        const s = await fetch('/');
+        document.getElementById('status').textContent = s.ok ? '● Online' : '● Offline';
+        const m = await fetch('/api/memorias?session_id=local').then(r=>r.json());
+        const h = await fetch('/api/historico?session_id=local&limite=40').then(r=>r.json());
+        document.getElementById('memorias').textContent = JSON.stringify(m.fatos || m, null, 2);
+        document.getElementById('historico').textContent = JSON.stringify(h.historico || h, null, 2);
+      }catch(e){
+        document.getElementById('status').textContent = '● Erro';
+        document.getElementById('memorias').textContent = String(e);
+      }
+    }
+    carregar();
+    setInterval(carregar, 15000);
+  </script>
+</body>
+</html>
+"""
+
+@app.get("/api/historico")
+def api_historico(session_id: str = "local", limite: int = 30):
+    try:
+        return {
+            "session_id": session_id,
+            "historico": carregar_historico(session_id, limite=limite)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 class MensagemRequest(BaseModel):
     mensagem: str
